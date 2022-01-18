@@ -7,6 +7,7 @@ import spinner from '../assets/spinner.gif';
 import { useStoreContext } from "../utils/GlobalState";
 import { UPDATE_PRODUCTS, REMOVE_FROM_CART, UPDATE_CART_QUANTITY, ADD_TO_CART } from "../utils/actions";
 import Cart from '../components/Cart';
+import { idbPromise } from '../utils/helpers';
 
 function Detail() {
   const [state, dispatch] = useStoreContext();
@@ -29,11 +30,18 @@ function Detail() {
         _id: id,
         purchaseQuantity: parseInt(itemInCart.purchaseQuantity) + 1
       });
+      //place item in indexedDB cart as well
+      idbPromise('cart', 'put', {
+        ...itemInCart,
+        purchaseQuantity: parseInt(itemInCart.purchaseQuantity) + 1
+      })
     } else {
       dispatch({
         type: ADD_TO_CART,
         product: { ...currentProduct, purchaseQuantity: 1 }
       });
+      //if product not yet in cart
+      idbPromise('cart','put', { ...currentProduct, purchaseQuantity: 1});
     }
   };
 
@@ -42,6 +50,9 @@ function Detail() {
       type: REMOVE_FROM_CART,
       _id: currentProduct._id
     });
+
+    //remove from indexedDB cart as well
+    idbPromise('cart', 'delete', { ...currentProduct });
   };
   useEffect(() => {
     if (products.length) {
@@ -51,8 +62,20 @@ function Detail() {
         type: UPDATE_PRODUCTS,
         products: data.products
       });
+
+      data.products.forEach(product => {
+        idbPromise('products', 'put', product);
+      });
+    } else if(!loading) {
+      //get cached data from idb
+      idbPromise('products', 'get').then(indexedProducts => {
+        dispatch({
+          type: UPDATE_PRODUCTS,
+          products: indexedProducts
+        });
+      });
     }
-  }, [products, id, data, dispatch]);
+  }, [products, id, data, dispatch, loading]);
 
   console.log(state);
   return (

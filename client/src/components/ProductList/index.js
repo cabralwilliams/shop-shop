@@ -4,8 +4,9 @@ import { useQuery } from '@apollo/client';
 import ProductItem from '../ProductItem';
 import { QUERY_PRODUCTS } from '../../utils/queries';
 import spinner from '../../assets/spinner.gif';
-import { UDATE_PRODUCTS, UPDATE_PRODUCTS } from '../../utils/actions';
+import { UPDATE_PRODUCTS } from '../../utils/actions';
 import { useStoreContext } from '../../utils/GlobalState';
+import { idbPromise } from '../../utils/helpers';
 
 function ProductList() {
   const [state, dispatch] = useStoreContext();
@@ -18,8 +19,22 @@ function ProductList() {
         type: UPDATE_PRODUCTS,
         products: data.products
       });
+
+      //Store each product in IndexedDB
+      data.products.forEach(product => {
+        idbPromise('products', 'put', product);
+      });
+    } else if(!loading) {
+      //If the data is neither loading nor present - implying offline state
+      idbPromise('products', 'get').then(products => {
+        //Use retrieved data to set global state for offline browsing
+        dispatch({
+          type: UPDATE_PRODUCTS,
+          products: products
+        });
+      });
     }
-  }, [data, dispatch]);
+  }, [data, loading, dispatch]);
   //const products = data?.products || [];
 
   function filterProducts() {
